@@ -100,3 +100,20 @@ export async function generateSessionReport(sessionId: string) {
     method: "POST"
   });
 }
+
+export async function downloadSessionReportPdf(sessionId: string) {
+  const response = await fetch(`${API_PREFIX}/sessions/${sessionId}/report/pdf`, {
+    method: "GET",
+    credentials: "include"
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as ApiErrorEnvelope;
+    throw new Error(payload.error?.message ?? "Unable to download the report PDF.");
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const fileNameMatch = disposition.match(/filename="?([^"]+)"?/i);
+  return { blob, filename: fileNameMatch?.[1] ?? `neurowatch-session-${sessionId}-clinical-report.pdf` };
+}

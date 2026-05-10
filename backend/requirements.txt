@@ -13,3 +13,4 @@ openai
 httpx
 pytest
 pytest-asyncio
+reportlab

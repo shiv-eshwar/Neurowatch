@@ -286,7 +286,14 @@ def create_local_analysis(payload: AnalyzeSessionInput) -> Analysis:
                 else f"Pay extra attention to {strongest_signal} next session because it showed the strongest change today."
             ),
             "data_quality_notes": " ".join(
-                [note for note in [payload.data_quality_notes, "OpenAI API key missing; local fallback analysis was used."] if note]
+                [
+                    note
+                    for note in [
+                        payload.data_quality_notes,
+                        "Narrative AI enhancement was unavailable in this environment; validated deterministic scoring was used.",
+                    ]
+                    if note
+                ]
             )
             if not get_settings().openai_api_key
             else payload.data_quality_notes,
@@ -331,12 +338,19 @@ def analyze_session(payload: AnalyzeSessionInput) -> Analysis:
         if not content:
             raise ValueError("OpenAI returned an empty analysis response.")
         return Analysis.model_validate_json(content)
-    except Exception as error:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         fallback_input = AnalyzeSessionInput(
             **{
                 **payload.__dict__,
                 "data_quality_notes": " ".join(
-                    [note for note in [payload.data_quality_notes, f"OpenAI analysis failed and local fallback was used: {error}"] if note]
+                    [
+                        note
+                        for note in [
+                            payload.data_quality_notes,
+                            "Narrative AI enhancement was unavailable; validated deterministic scoring was used.",
+                        ]
+                        if note
+                    ]
                 ),
             }
         )

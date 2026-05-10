@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { memoryWordBank, patternQuestions, sequencePattern } from "../../data/session-content";
+import { memoryWordBank, sequencePattern } from "../../data/session-content";
 import { deriveMemoryMetrics } from "../../lib/metrics";
 import type { MemoryMetrics } from "../../lib/types";
 import { SessionShell } from "./SessionShell";
@@ -8,21 +8,59 @@ type MemoryTestProps = {
   onComplete: (metrics: MemoryMetrics) => void;
 };
 
+type RecognitionQuestion = {
+  id: string;
+  prompt: string;
+  answer: string;
+  options: string[];
+};
+
 export function MemoryTest({ onComplete }: MemoryTestProps) {
-  const [stage, setStage] = useState<"study" | "recall" | "patterns" | "sequence">("study");
+  const [stage, setStage] = useState<
+    "study" | "recall" | "patterns" | "sequence-study" | "sequence-recall"
+  >("study");
   const [recallText, setRecallText] = useState("");
   const [recallStartedAt, setRecallStartedAt] = useState<number | null>(null);
-  const [patternAnswers, setPatternAnswers] = useState<Record<string, string>>({});
+  const [recognitionAnswers, setRecognitionAnswers] = useState<Record<string, string>>({});
   const [sequenceAnswer, setSequenceAnswer] = useState("");
   const expectedWords = useMemo(() => memoryWordBank.slice(0, 4), []);
+  const recognitionQuestions = useMemo<RecognitionQuestion[]>(
+    () => [
+      {
+        id: "r1",
+        prompt: "Which word was shown in the memory list?",
+        answer: expectedWords[1],
+        options: [expectedWords[1], "harbor", "velvet", "meadow"]
+      },
+      {
+        id: "r2",
+        prompt: "Which word was NOT shown in the memory list?",
+        answer: "thunder",
+        options: [expectedWords[0], expectedWords[2], expectedWords[3], "thunder"]
+      },
+      {
+        id: "r3",
+        prompt: "Which word appeared first?",
+        answer: expectedWords[0],
+        options: [expectedWords[0], expectedWords[1], expectedWords[2], expectedWords[3]]
+      },
+      {
+        id: "r4",
+        prompt: "Which word appeared third?",
+        answer: expectedWords[2],
+        options: [expectedWords[0], expectedWords[1], expectedWords[2], expectedWords[3]]
+      }
+    ],
+    [expectedWords]
+  );
 
   function finish() {
     const recalledWords = recallText
       .split(",")
       .map((word) => word.trim())
       .filter(Boolean);
-    const patternCorrect = patternQuestions.filter(
-      (question) => patternAnswers[question.id] === question.answer
+    const patternCorrect = recognitionQuestions.filter(
+      (question) => recognitionAnswers[question.id] === question.answer
     ).length;
     const sequenceCorrect = sequenceAnswer
       .split("")
@@ -34,7 +72,7 @@ export function MemoryTest({ onComplete }: MemoryTestProps) {
         recalledWords,
         recallLatencyMs: recallStartedAt ? performance.now() - recallStartedAt : 1500,
         patternCorrect,
-        patternTotal: patternQuestions.length,
+        patternTotal: recognitionQuestions.length,
         sequenceCorrect,
         sequenceTotal: sequencePattern.length
       })
@@ -95,25 +133,25 @@ export function MemoryTest({ onComplete }: MemoryTestProps) {
             onClick={() => setStage("patterns")}
             className="mt-5 rounded-full bg-slate-900 px-5 py-2 text-sm text-white transition hover:bg-slate-800"
           >
-            Continue to pattern recognition
+            Continue to recognition checks
           </button>
         </div>
       )}
 
       {stage === "patterns" && (
         <div className="grid gap-4">
-          {patternQuestions.map((question) => (
+          {recognitionQuestions.map((question) => (
             <article key={question.id} className="rounded-3xl border border-slate-200 bg-white p-5">
               <p className="text-xl font-medium text-slate-900">{question.prompt}</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 {question.options.map((option) => {
-                  const selected = patternAnswers[question.id] === option;
+                  const selected = recognitionAnswers[question.id] === option;
                   return (
                     <button
                       key={option}
                       type="button"
                       onClick={() =>
-                        setPatternAnswers((previous) => ({
+                        setRecognitionAnswers((previous) => ({
                           ...previous,
                           [question.id]: option
                         }))
@@ -133,7 +171,7 @@ export function MemoryTest({ onComplete }: MemoryTestProps) {
           ))}
           <button
             type="button"
-            onClick={() => setStage("sequence")}
+            onClick={() => setStage("sequence-study")}
             className="w-fit rounded-full bg-slate-900 px-5 py-2 text-sm text-white transition hover:bg-slate-800"
           >
             Continue to sequence recall
@@ -141,11 +179,34 @@ export function MemoryTest({ onComplete }: MemoryTestProps) {
         </div>
       )}
 
-      {stage === "sequence" && (
+      {stage === "sequence-study" && (
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <article className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Memorize the sequence</p>
             <p className="mt-4 font-mono text-5xl tracking-[0.4em] text-slate-900">{sequencePattern.join(" ")}</p>
+          </article>
+          <article className="rounded-3xl border border-slate-200 bg-white p-6">
+            <p className="text-sm leading-7 text-slate-600">
+              Read this sequence once or twice, then hide it before answering from memory.
+            </p>
+            <button
+              type="button"
+              onClick={() => setStage("sequence-recall")}
+              className="mt-5 rounded-full bg-slate-900 px-5 py-2 text-sm text-white transition hover:bg-slate-800"
+            >
+              Hide sequence and answer
+            </button>
+          </article>
+        </div>
+      )}
+
+      {stage === "sequence-recall" && (
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <article className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Recall the sequence</p>
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              Enter the digits you remember in the same order.
+            </p>
           </article>
           <article className="rounded-3xl border border-slate-200 bg-white p-6">
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Recall from memory</p>

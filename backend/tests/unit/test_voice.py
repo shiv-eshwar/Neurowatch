@@ -1,4 +1,11 @@
-from app.services.voice import derive_articulation_score, derive_pause_metrics, derive_speech_rate
+from types import SimpleNamespace
+
+from app.services.voice import (
+    _extract_word_timestamps,
+    derive_articulation_score,
+    derive_pause_metrics,
+    derive_speech_rate,
+)
 
 
 def test_derive_speech_rate():
@@ -20,3 +27,17 @@ def test_derive_pause_metrics():
 def test_derive_articulation_score():
     result = derive_articulation_score([0.92, 0.9, 0.88], 0.02)
     assert result > 80
+
+
+def test_extract_word_timestamps_without_confidence_field():
+    transcript = SimpleNamespace(
+        words=[
+            SimpleNamespace(start=0.0, end=0.2),
+            SimpleNamespace(start=0.6, end=0.9),
+        ]
+    )
+    words = _extract_word_timestamps(transcript)
+    assert len(words) == 2
+    assert words[0]["start"] == 0.0
+    assert words[0]["end"] == 0.2
+    assert words[0]["confidence"] is None

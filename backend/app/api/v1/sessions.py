@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
@@ -23,7 +23,7 @@ from app.schemas.session import (
 )
 from app.services.analysis import AnalyzeSessionInput, analyze_session
 from app.services.baseline import get_user_baseline
-from app.services.reporting import generate_doctor_report
+from app.services.reporting import generate_doctor_report, generate_doctor_report_pdf
 from app.services.voice import transcribe_and_derive_voice_metrics
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -63,14 +63,19 @@ def create_session(
     voice_notes = None
     merged_metrics = parsed
     if audio and audio.filename:
-        voice_result = transcribe_and_derive_voice_metrics(audio.file.read(), audio.filename)
-        merged_metrics = SessionMetrics(
-            typing=parsed.typing,
-            reaction=parsed.reaction,
-            memory=parsed.memory,
-            voice=voice_result.voice or parsed.voice,
-        )
-        voice_notes = voice_result.data_quality_notes
+        try:
+            voice_result = transcribe_and_derive_voice_metrics(audio.file.read(), audio.filename)
+            merged_metrics = SessionMetrics(
+                typing=parsed.typing,
+                reaction=parsed.reaction,
+                memory=parsed.memory,
+                voice=voice_result.voice or parsed.voice,
+            )
+            voice_notes = voice_result.data_quality_notes
+        except Exception:  # noqa: BLE001
+            voice_notes = (
+                "Voice transcription failed for this upload, so voice pacing metrics were unavailable."
+            )
 
     baseline = get_user_baseline(db, current_user.id)
     actual_session_id = session_id if session_id else str(uuid.uuid4())
@@ -179,3 +184,30 @@ def generate_session_report(
         raise HTTPException(status_code=404, detail="Session not found.")
     report = generate_doctor_report(session)
     return SessionDoctorReportResponse(report=report)
+
+
+@router.get("/{session_id}/report/pdf")
+@limiter.limit(DEFAULT_RATE_LIMIT)
+def download_session_report_pdf(
+    request: Request,
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_user),
+):
+    session = db.scalar(
+        select(SessionModel).where(
+            SessionModel.id == session_id,
+            SessionModel.user_id == current_user.id,
+        )
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    report = generate_doctor_report(session)
+    pdf_bytes = generate_doctor_report_pdf(report)
+    filename = f"neurowatch-session-{session.number}-clinical-report.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

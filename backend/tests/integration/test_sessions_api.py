@@ -1,5 +1,7 @@
 import json
 
+import app.api.v1.sessions as sessions_api
+
 
 def _signup(client):
     response = client.post(
@@ -71,3 +73,49 @@ def test_session_create_list_and_detail(client):
     assert "Detailed Session Report" in report_payload["title"]
     assert isinstance(report_payload["sections"], list)
     assert len(report_payload["sections"]) > 0
+
+    pdf_response = client.get(f"/api/v1/sessions/{session_id}/report/pdf")
+    assert pdf_response.status_code == 200
+    assert pdf_response.headers["content-type"] == "application/pdf"
+    assert pdf_response.content.startswith(b"%PDF")
+
+
+def test_session_create_survives_voice_transcription_failure(client, monkeypatch):
+    _signup(client)
+    metrics = {
+        "typing": {
+            "wpm": 58,
+            "keystroke_interval_variance_ms": 110,
+            "error_rate_percent": 2.0,
+            "backspace_frequency_per_100chars": 4.1,
+            "key_hold_duration_mean_ms": 90,
+        },
+        "reaction": {
+            "mean_reaction_time_ms": 275,
+            "reaction_time_variance_ms": 38,
+            "miss_rate_percent": 1.5,
+            "anticipation_errors": 0,
+        },
+        "memory": {
+            "recall_accuracy_percent": 83,
+            "recall_latency_ms": 1400,
+            "pattern_recognition_score": 87,
+            "sequence_memory_score": 84,
+            "false_positive_rate_percent": 4,
+        },
+        "voice": None,
+    }
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated whisper failure")
+
+    monkeypatch.setattr(sessions_api, "transcribe_and_derive_voice_metrics", _boom)
+    response = client.post(
+        "/api/v1/sessions",
+        data={"metrics": json.dumps(metrics)},
+        files={"audio": ("voice.webm", b"fake-bytes", "audio/webm")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["analysis"]["data_quality_notes"] is not None
+    assert "voice transcription failed" in payload["analysis"]["data_quality_notes"].lower()

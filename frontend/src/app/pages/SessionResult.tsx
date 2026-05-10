@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { DomainCard } from "../components/DomainCard";
 import { InsightsPanel } from "../components/InsightsPanel";
 import { RiskIndicator } from "../components/RiskIndicator";
-import { generateSessionReport, getSessionById } from "../lib/api";
+import { downloadSessionReportPdf, generateSessionReport, getSessionById } from "../lib/api";
 import type { DoctorReport, DomainName, SessionRecord } from "../lib/types";
 
 export function SessionResultPage() {
@@ -13,6 +13,7 @@ export function SessionResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
@@ -77,17 +78,25 @@ export function SessionResultPage() {
     window.setTimeout(() => setCopyState("idle"), 2200);
   }
 
-  function handleDownloadReport() {
-    if (!doctorReport) {
+  async function handleDownloadReportPdf() {
+    if (!id || downloadingPdf) {
       return;
     }
-    const blob = new Blob([doctorReport.share_text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `neurowatch-session-${analysis.session_number}-detailed-report.txt`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    setDownloadingPdf(true);
+    setReportError(null);
+    try {
+      const { blob, filename } = await downloadSessionReportPdf(id);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (downloadError) {
+      setReportError(downloadError instanceof Error ? downloadError.message : "Unable to download report PDF.");
+    } finally {
+      setDownloadingPdf(false);
+    }
   }
 
   return (
@@ -183,10 +192,11 @@ export function SessionResultPage() {
             </button>
             <button
               type="button"
-              onClick={handleDownloadReport}
+              onClick={handleDownloadReportPdf}
+              disabled={downloadingPdf}
               className="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
             >
-              Download .txt
+              {downloadingPdf ? "Preparing PDF..." : "Download PDF report"}
             </button>
             <a
               href={`mailto:?subject=${encodeURIComponent(doctorReport.email_subject)}&body=${encodeURIComponent(

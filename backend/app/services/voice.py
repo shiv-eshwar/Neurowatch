@@ -44,22 +44,44 @@ def derive_articulation_score(confidences: list[float], filler_ratio: float) -> 
     return max(0, min(100, round(confidence_score - filler_penalty)))
 
 
-def _extract_word_timestamps(transcript) -> list[dict[str, float]]:
+def _safe_float(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_confidence(item) -> float | None:
+    # Newer SDK objects may not include confidence for word-level timestamps.
+    if isinstance(item, dict):
+        return _safe_float(item.get("confidence"))
+    return _safe_float(getattr(item, "confidence", None))
+
+
+def _extract_word_timestamps(transcript) -> list[dict[str, float | None]]:
     if hasattr(transcript, "words") and transcript.words:
-        return [
-            {"start": float(item.start), "end": float(item.end), "confidence": float(item.confidence or 0)}
-            for item in transcript.words
-            if item.start is not None and item.end is not None
-        ]
+        words: list[dict[str, float | None]] = []
+        for item in transcript.words:
+            start = _safe_float(getattr(item, "start", None))
+            end = _safe_float(getattr(item, "end", None))
+            if start is not None and end is not None:
+                words.append({"start": start, "end": end, "confidence": _extract_confidence(item)})
+        return words
 
     segments = getattr(transcript, "segments", None) or []
-    words: list[dict[str, float]] = []
+    words: list[dict[str, float | None]] = []
     for segment in segments:
         for item in getattr(segment, "words", []) or []:
-            if item.start is not None and item.end is not None:
-                words.append(
-                    {"start": float(item.start), "end": float(item.end), "confidence": float(item.confidence or 0)}
-                )
+            if isinstance(item, dict):
+                start = _safe_float(item.get("start"))
+                end = _safe_float(item.get("end"))
+            else:
+                start = _safe_float(getattr(item, "start", None))
+                end = _safe_float(getattr(item, "end", None))
+            if start is not None and end is not None:
+                words.append({"start": start, "end": end, "confidence": _extract_confidence(item)})
     return words
 
 
