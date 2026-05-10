@@ -1,0 +1,23 @@
+[Unit]
+Description=NeuroWatch FastAPI service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/neurowatch
+EnvironmentFile=/opt/neurowatch/.env
+ExecStart=/opt/neurowatch/.venv/bin/gunicorn --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000 --timeout 120 --graceful-timeout 30 --access-logfile - --error-logfile - --chdir backend app.main:app
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/neurowatch
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

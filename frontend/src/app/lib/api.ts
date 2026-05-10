@@ -48,6 +48,13 @@ export async function signIn(input: { email: string; password: string }) {
   });
 }
 
+export async function signInWithFirebaseToken(input: { id_token: string }) {
+  return requestJson<{ user: User }>("/auth/firebase", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
 export async function signOut() {
   return requestJson<{ ok: boolean }>("/auth/logout", { method: "POST" });
 }

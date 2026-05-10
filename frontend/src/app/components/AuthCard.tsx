@@ -6,16 +6,46 @@ type AuthCardProps = {
   mode: "login" | "signup";
 };
 
+function mapAuthErrorMessage(error: unknown, fallback: string): string {
+  const code =
+    typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+      ? error.code
+      : null;
+  if (!code) {
+    return error instanceof Error ? error.message : fallback;
+  }
+  if (code === "auth/operation-not-allowed") {
+    return "Google sign-in is not enabled in Firebase Authentication settings.";
+  }
+  if (code === "auth/unauthorized-domain") {
+    return "This domain is not authorized in Firebase. Add localhost in Firebase Authentication > Settings.";
+  }
+  if (code === "auth/popup-closed-by-user") {
+    return "Google sign-in popup was closed before completion.";
+  }
+  if (code === "auth/popup-blocked") {
+    return "Popup was blocked by your browser. Allow popups for this site and try again.";
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function AuthCard({ mode }: AuthCardProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signInWithGoogle, signUp, firebaseEnabled } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isSignup = mode === "signup";
+  const shouldShowGoogle = firebaseEnabled;
+
+  function navigateAfterAuth() {
+    const fallback = "/dashboard";
+    const state = location.state as { from?: string } | null;
+    navigate(state?.from ?? fallback, { replace: true });
+  }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,12 +64,22 @@ export function AuthCard({ mode }: AuthCardProps) {
           password
         });
       }
-
-      const fallback = "/dashboard";
-      const state = location.state as { from?: string } | null;
-      navigate(state?.from ?? fallback, { replace: true });
+      navigateAfterAuth();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Authentication failed.");
+      setError(mapAuthErrorMessage(submitError, "Authentication failed."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onGoogleContinue() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await signInWithGoogle();
+      navigateAfterAuth();
+    } catch (submitError) {
+      setError(mapAuthErrorMessage(submitError, "Google sign-in failed."));
     } finally {
       setSubmitting(false);
     }
@@ -58,6 +98,27 @@ export function AuthCard({ mode }: AuthCardProps) {
           ? "Your account stores longitudinal sessions securely so you can track changes over time."
           : "Sign in to continue your session history and dashboard trends."}
       </p>
+
+      {shouldShowGoogle ? (
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={onGoogleContinue}
+            disabled={submitting}
+            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 transition hover:bg-slate-50 disabled:opacity-60"
+          >
+            Continue with Google
+          </button>
+          <p className="mt-2 text-xs text-slate-500">
+            If your browser blocks popups, NeuroWatch will continue using a secure redirect.
+          </p>
+          <div className="mt-4 flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span>or continue with email</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-4">
         {isSignup && (

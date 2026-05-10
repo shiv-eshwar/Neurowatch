@@ -18,6 +18,22 @@ from app.middleware.rate_limit import RateLimitExceeded, SlowAPIMiddleware, limi
 from app.middleware.request_id import RequestIdMiddleware
 
 
+def _resolve_frontend_dist() -> Path | None:
+    """
+    Support both local repo layout and Cloud Run source-deploy layout.
+    """
+    file_path = Path(__file__).resolve()
+    candidates = [
+        file_path.parents[2] / "frontend" / "dist",  # local: repo/backend/app/main.py -> repo/frontend/dist
+        file_path.parents[1] / "frontend" / "dist",  # cloud source deploy from backend/: /workspace/frontend/dist
+        Path.cwd() / "frontend" / "dist",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging()
@@ -49,9 +65,9 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router, prefix=settings.api_prefix)
 
-    dist_path = (Path(__file__).resolve().parents[2] / "frontend" / "dist").resolve()
-    if dist_path.exists():
-        app.mount("/", StaticFiles(directory=str(dist_path), html=True), name="spa")
+    dist_path = _resolve_frontend_dist()
+    if dist_path:
+        app.mount("/", StaticFiles(directory=str(dist_path.resolve()), html=True), name="spa")
 
     return app
 

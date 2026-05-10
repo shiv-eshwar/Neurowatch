@@ -9,8 +9,8 @@ from app.db.session import get_db
 from app.middleware.auth import AUTH_COOKIE_NAME
 from app.middleware.rate_limit import limiter
 from app.models.user import User
-from app.schemas.auth import AuthCredentials, AuthResponse, SignupRequest, UserResponse
-from app.services.auth_provider import AuthError, get_auth_provider
+from app.schemas.auth import AuthCredentials, AuthResponse, FirebaseAuthRequest, SignupRequest, UserResponse
+from app.services.auth_provider import AuthError, authenticate_with_firebase_token, get_auth_provider
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -53,6 +53,24 @@ def signup(request: Request, payload: SignupRequest, response: Response, db: Ses
 def login(request: Request, payload: AuthCredentials, response: Response, db: Session = Depends(get_db)):
     try:
         user, token = get_auth_provider().login(db, payload)
+    except AuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    db_user = db.get(User, user.id)
+    response.set_cookie(AUTH_COOKIE_NAME, token, **_cookie_kwargs())
+    return AuthResponse(user=_to_user_response(db_user))
+
+
+@router.post("/firebase", response_model=AuthResponse)
+@limiter.limit(get_settings().rate_limit_auth)
+def login_with_firebase(
+    request: Request,
+    payload: FirebaseAuthRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    try:
+        user, token = authenticate_with_firebase_token(db, payload.id_token)
     except AuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 

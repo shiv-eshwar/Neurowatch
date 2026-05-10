@@ -1,13 +1,28 @@
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
+from typing import Any
 
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, try_decode_access_token, verify_password
 from app.models.user import User
 from app.schemas.auth import AuthCredentials, SignupRequest
+
+try:
+    import firebase_admin
+    from firebase_admin import auth as firebase_auth
+    from firebase_admin import credentials
+except Exception:  # noqa: BLE001
+    firebase_admin = None
+    firebase_auth = None
+    credentials = None
 
 
 class AuthError(Exception):
@@ -78,6 +93,109 @@ class LocalAuthProvider(AuthProvider):
             email=claims.get("email") or "",
             display_name=claims.get("display_name"),
         )
+
+
+@lru_cache(maxsize=1)
+def _get_firebase_app():
+    if firebase_admin is None or firebase_auth is None or credentials is None:
+        raise AuthError("firebase-admin is not installed on the backend runtime.")
+
+    settings = get_settings()
+    try:
+        return firebase_admin.get_app()
+    except ValueError:
+        pass
+
+    service_account_json = settings.firebase_service_account_json
+    if service_account_json:
+        try:
+            cert_data = json.loads(service_account_json)
+            return firebase_admin.initialize_app(credentials.Certificate(cert_data))
+        except json.JSONDecodeError as exc:
+            raise AuthError("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.") from exc
+
+    if settings.firebase_client_email and settings.firebase_private_key_normalized and settings.firebase_project_id:
+        cert_data = {
+            "type": "service_account",
+            "project_id": settings.firebase_project_id,
+            "client_email": settings.firebase_client_email,
+            "private_key": settings.firebase_private_key_normalized,
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+        return firebase_admin.initialize_app(credentials.Certificate(cert_data))
+
+    if settings.firebase_project_id:
+        # Cloud environments can use application default credentials.
+        return firebase_admin.initialize_app(options={"projectId": settings.firebase_project_id})
+
+    raise AuthError(
+        "Firebase Admin credentials are missing. Configure FIREBASE_SERVICE_ACCOUNT_JSON or "
+        "FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY."
+    )
+
+
+def verify_firebase_id_token(id_token: str) -> dict[str, Any]:
+    settings = get_settings()
+    try:
+        app = _get_firebase_app()
+        decoded = firebase_auth.verify_id_token(id_token, app=app)
+        return decoded
+    except AuthError:
+        pass
+    except Exception:  # noqa: BLE001
+        pass
+
+    if settings.firebase_project_id:
+        try:
+            request_adapter = google_requests.Request()
+            decoded = google_id_token.verify_firebase_token(
+                id_token,
+                request_adapter,
+                audience=settings.firebase_project_id,
+            )
+            if decoded:
+                return decoded
+        except Exception:  # noqa: BLE001
+            pass
+
+    raise AuthError(
+        "Invalid or expired Firebase ID token. Confirm frontend and backend use the same Firebase project "
+        "and that FIREBASE_PROJECT_ID is configured."
+    )
+
+
+def authenticate_with_firebase_token(db: Session, id_token: str) -> tuple[AuthenticatedUser, str]:
+    decoded = verify_firebase_id_token(id_token)
+    email = decoded.get("email")
+    if not isinstance(email, str) or not email.strip():
+        raise AuthError("Firebase token does not include an email.")
+
+    normalized_email = email.strip().lower()
+    display_name = decoded.get("name")
+    if not isinstance(display_name, str):
+        display_name = None
+
+    user = db.scalar(select(User).where(User.email == normalized_email))
+    if not user:
+        user = User(
+            email=normalized_email,
+            display_name=display_name,
+            password_hash=None,
+            last_login_at=datetime.now(timezone.utc),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        if display_name and user.display_name != display_name:
+            user.display_name = display_name
+        user.last_login_at = datetime.now(timezone.utc)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = create_access_token(user_id=user.id, email=user.email, display_name=user.display_name)
+    return AuthenticatedUser(id=user.id, email=user.email, display_name=user.display_name), token
 
 
 def get_auth_provider() -> AuthProvider:

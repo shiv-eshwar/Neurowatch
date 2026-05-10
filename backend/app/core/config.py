@@ -26,6 +26,10 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
     cors_origins: str = "http://localhost:5173"
+    firebase_project_id: str | None = None
+    firebase_service_account_json: str | None = None
+    firebase_client_email: str | None = None
+    firebase_private_key: str | None = None
 
     rate_limit_auth: str = "10/minute"
     rate_limit_default: str = "60/minute"
@@ -45,6 +49,12 @@ class Settings(BaseSettings):
     @property
     def secure_cookies(self) -> bool:
         return self.environment.lower() == "production"
+
+    @property
+    def firebase_private_key_normalized(self) -> str | None:
+        if not self.firebase_private_key:
+            return None
+        return self.firebase_private_key.replace("\\n", "\n")
 
     @property
     def cors_origin_list(self) -> List[str]:

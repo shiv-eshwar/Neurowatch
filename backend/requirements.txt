@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+gunicorn
 pydantic
 pydantic-settings
 email-validator
@@ -11,6 +12,7 @@ python-jose[cryptography]
 slowapi
 python-multipart
 openai
+firebase-admin
 httpx
 pytest
 pytest-asyncio
