@@ -65,6 +65,13 @@ cd /opt/neurowatch
 bash deploy/lightsail/deploy.sh /opt/neurowatch
 ```
 
+If you cloned into a nested path (for example `/opt/neurowatch/Neurowatch`), use:
+
+```bash
+cd /opt/neurowatch/Neurowatch
+bash deploy/lightsail/deploy.sh "$(pwd)"
+```
+
 Verify:
 
 ```bash
@@ -80,6 +87,12 @@ For every later release, use one command on the server:
 ```bash
 cd /opt/neurowatch
 bash deploy/lightsail/deploy-production.sh /opt/neurowatch main
+```
+
+For nested clone paths, run from repo root:
+
+```bash
+bash deploy/lightsail/deploy-production.sh "$(pwd)" main
 ```
 
 This script performs:

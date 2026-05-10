@@ -3,6 +3,9 @@ set -Eeuo pipefail
 
 APP_DIR="${1:-/opt/neurowatch}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+RUN_USER="${DEPLOY_RUN_USER:-${SUDO_USER:-$USER}}"
+
+APP_DIR="$(realpath "$APP_DIR")"
 
 echo "==> Deploying NeuroWatch from ${APP_DIR}"
 cd "$APP_DIR"
@@ -41,10 +44,28 @@ echo "==> Running database migrations"
 )
 
 echo "==> Installing systemd service"
-sudo install -m 644 deploy/lightsail/neurowatch.service /etc/systemd/system/neurowatch.service
+if [[ ! -f "deploy/lightsail/neurowatch.service" ]]; then
+  echo "ERROR: deploy/lightsail/neurowatch.service not found."
+  exit 1
+fi
+
+SERVICE_TMP="$(mktemp)"
+sed \
+  -e "s|__APP_DIR__|${APP_DIR}|g" \
+  -e "s|__RUN_USER__|${RUN_USER}|g" \
+  "deploy/lightsail/neurowatch.service" > "$SERVICE_TMP"
+
+sudo install -m 644 "$SERVICE_TMP" /etc/systemd/system/neurowatch.service
+rm -f "$SERVICE_TMP"
+
 sudo systemctl daemon-reload
 sudo systemctl enable neurowatch
-sudo systemctl restart neurowatch
+if ! sudo systemctl restart neurowatch; then
+  echo "ERROR: neurowatch.service failed to start."
+  sudo systemctl --no-pager status neurowatch || true
+  sudo journalctl -xeu neurowatch --no-pager | tail -n 120 || true
+  exit 1
+fi
 
 echo "==> Installing nginx site config"
 sudo install -m 644 deploy/lightsail/nginx.neurowatch.conf /etc/nginx/sites-available/neurowatch

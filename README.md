@@ -169,6 +169,7 @@ For VM-based deployment on Lightsail (without Docker), use:
 - `.github/workflows/deploy-lightsail.yml` (GitHub Actions SSH deployment)
 
 Detailed guide: `docs/lightsail-deployment.md`.
+These scripts build both frontend and backend, run migrations, and restart services.
 
 ## Security Note
 

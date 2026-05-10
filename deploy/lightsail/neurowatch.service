@@ -5,18 +5,18 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=ubuntu
-Group=ubuntu
-WorkingDirectory=/opt/neurowatch
-EnvironmentFile=/opt/neurowatch/.env
-ExecStart=/opt/neurowatch/.venv/bin/gunicorn --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000 --timeout 120 --graceful-timeout 30 --access-logfile - --error-logfile - --chdir backend app.main:app
+User=__RUN_USER__
+Group=__RUN_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=__APP_DIR__/.env
+ExecStart=__APP_DIR__/.venv/bin/gunicorn --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000 --timeout 120 --graceful-timeout 30 --access-logfile - --error-logfile - --chdir backend app.main:app
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
-ReadWritePaths=/opt/neurowatch
+ReadWritePaths=__APP_DIR__
 LimitNOFILE=4096
 
 [Install]
