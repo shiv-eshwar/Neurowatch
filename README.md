@@ -1,8 +1,8 @@
 # NeuroWatch
 
-NeuroWatch is now a production-oriented, two-tier application:
+NeuroWatch is now a production-oriented, two-tier application with a clean folder split:
 
-- Frontend: Vite + React SPA (`src/`)
+- Frontend: Vite + React SPA (`frontend/`)
 - Backend: FastAPI + SQLAlchemy + Alembic (`backend/`)
 - Auth: secure httpOnly JWT cookie with a provider seam for future Firebase auth
 - Session pipeline: typing + reaction + memory + voice ingestion, baseline comparison, local deterministic analysis fallback, optional OpenAI-enhanced analysis
@@ -30,7 +30,9 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 Frontend:
 
 ```bash
+cd frontend
 npm install
+cd ..
 ```
 
 Backend:
@@ -52,14 +54,14 @@ cd ..
 Run both frontend and backend together:
 
 ```bash
-npm run dev:all
+npm run dev
 ```
 
 Or separately:
 
 ```bash
-npm run dev
-npm run backend
+npm run dev:frontend
+npm run dev:backend
 ```
 
 Frontend: [http://localhost:5173](http://localhost:5173)  
@@ -74,11 +76,11 @@ python -m pytest
 ## Production Build
 
 ```bash
-npm run build
+npm run build:frontend
 python -m uvicorn app.main:app --port 8000 --app-dir backend
 ```
 
-FastAPI will serve the built SPA from `dist/` when present.
+FastAPI will serve the built SPA from `frontend/dist/` when present.
 
 ## Security Note
 

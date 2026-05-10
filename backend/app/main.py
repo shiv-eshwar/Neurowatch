@@ -49,7 +49,7 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router, prefix=settings.api_prefix)
 
-    dist_path = (Path(__file__).resolve().parents[2] / "dist").resolve()
+    dist_path = (Path(__file__).resolve().parents[2] / "frontend" / "dist").resolve()
     if dist_path.exists():
         app.mount("/", StaticFiles(directory=str(dist_path), html=True), name="spa")
 

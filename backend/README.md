@@ -18,6 +18,8 @@ python -m pip install -r backend/requirements.txt
 python -m uvicorn app.main:app --reload --port 8000 --app-dir backend
 ```
 
+If `frontend/dist` exists, FastAPI also serves the SPA at `/`.
+
 ## Database
 
 Apply migrations:
