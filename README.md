@@ -163,6 +163,8 @@ For VM-based deployment on Lightsail (without Docker), use:
 
 - `deploy/lightsail/bootstrap.sh` (one-time server setup)
 - `deploy/lightsail/deploy.sh` (application release)
+- `deploy/lightsail/deploy-production.sh` (one-command pull + release)
+- `deploy/lightsail/rollback.sh` (rollback to previous stable release)
 - `deploy/lightsail/enable-ssl.sh` (Let's Encrypt TLS)
 - `.github/workflows/deploy-lightsail.yml` (GitHub Actions SSH deployment)
 

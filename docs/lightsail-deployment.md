@@ -73,6 +73,46 @@ sudo systemctl status neurowatch --no-pager
 sudo nginx -t
 ```
 
+## 4.1) One-command update deploys (recommended)
+
+For every later release, use one command on the server:
+
+```bash
+cd /opt/neurowatch
+bash deploy/lightsail/deploy-production.sh /opt/neurowatch main
+```
+
+This script performs:
+
+- `git fetch` + checkout/reset to latest branch commit
+- dependency install
+- frontend build
+- Alembic migration
+- systemd service restart
+- nginx config test + reload
+
+## 4.2) Roll back to a previous stable release
+
+Automatic rollback to prior successful deploy:
+
+```bash
+cd /opt/neurowatch
+bash deploy/lightsail/rollback.sh /opt/neurowatch
+```
+
+Rollback to a specific commit/tag:
+
+```bash
+cd /opt/neurowatch
+bash deploy/lightsail/rollback.sh /opt/neurowatch <commit-or-tag>
+```
+
+The rollback script:
+
+- resets repository to target commit
+- runs full deploy pipeline
+- records rollback event in `.deploy/deploy-history.log`
+
 ## 5) Enable HTTPS
 
 After DNS is propagated:
