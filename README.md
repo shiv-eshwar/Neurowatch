@@ -18,6 +18,7 @@ Copy values from `.env.example` into `.env` and set:
 
 - `JWT_SECRET` to a long random value
 - `OPENAI_API_KEY` only if you want AI/Whisper features (optional)
+- `DATABASE_URL` to your managed Postgres URL for production (Neon URL formats like `postgresql://...` are supported)
 
 Generate a secure JWT secret:
 
@@ -48,6 +49,22 @@ cd backend
 alembic upgrade head
 cd ..
 ```
+
+### Using Neon Postgres
+
+If you are moving from local SQLite to Neon:
+
+1. Set `DATABASE_URL` in `.env` to your Neon connection string.
+2. Install backend dependencies (includes Postgres driver):
+   ```bash
+   python -m pip install -r backend/requirements.txt
+   ```
+3. Run:
+   ```bash
+   cd backend
+   alembic upgrade head
+   cd ..
+   ```
 
 ## 4) Run in Development
 

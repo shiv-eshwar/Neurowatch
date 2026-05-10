@@ -17,7 +17,7 @@ def create_engine_for_url(database_url: str):
 
 
 settings = get_settings()
-engine = create_engine_for_url(settings.database_url)
+engine = create_engine_for_url(settings.normalized_database_url)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, expire_on_commit=False)
 
 

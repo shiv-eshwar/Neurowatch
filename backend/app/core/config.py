@@ -1,5 +1,6 @@
 import json
 from functools import lru_cache
+from pathlib import Path
 from typing import List
 
 from pydantic import Field
@@ -7,7 +8,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=str(Path(__file__).resolve().parents[3] / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     app_name: str = "NeuroWatch API"
     api_prefix: str = "/api/v1"
@@ -24,6 +29,18 @@ class Settings(BaseSettings):
 
     rate_limit_auth: str = "10/minute"
     rate_limit_default: str = "60/minute"
+
+    @property
+    def normalized_database_url(self) -> str:
+        """
+        Accept provider URLs like postgresql:// and map to SQLAlchemy psycopg dialect.
+        """
+        value = self.database_url.strip()
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        if value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql+psycopg://", 1)
+        return value
 
     @property
     def secure_cookies(self) -> bool:
