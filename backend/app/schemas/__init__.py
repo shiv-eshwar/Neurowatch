@@ -2,7 +2,10 @@ from app.schemas.analysis import Analysis, DISCLAIMER_TEXT, DomainScore, Session
 from app.schemas.auth import AuthCredentials, AuthResponse, SignupRequest, UserResponse
 from app.schemas.metrics import MemoryMetrics, ReactionMetrics, SessionMetrics, TypingMetrics, VoiceMetrics
 from app.schemas.session import (
+    DoctorReport,
+    DoctorReportSection,
     SessionDetailResponse,
+    SessionDoctorReportResponse,
     SessionListResponse,
     SessionRecord,
     SessionTrendsResponse,
@@ -26,6 +29,9 @@ __all__ = [
     "SessionRecord",
     "SessionListResponse",
     "SessionDetailResponse",
+    "DoctorReportSection",
+    "DoctorReport",
+    "SessionDoctorReportResponse",
     "TrendPoint",
     "SessionTrendsResponse",
 ]

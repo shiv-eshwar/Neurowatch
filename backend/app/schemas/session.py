@@ -36,3 +36,23 @@ class TrendPoint(BaseModel):
 class SessionTrendsResponse(BaseModel):
     trends: list[TrendPoint]
     latest: Analysis | None
+
+
+class DoctorReportSection(BaseModel):
+    title: str
+    points: list[str]
+
+
+class DoctorReport(BaseModel):
+    session_id: str
+    user_id: str
+    generated_at: datetime
+    title: str
+    summary: str
+    sections: list[DoctorReportSection]
+    email_subject: str
+    share_text: str
+
+
+class SessionDoctorReportResponse(BaseModel):
+    report: DoctorReport

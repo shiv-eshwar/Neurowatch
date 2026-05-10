@@ -63,3 +63,11 @@ def test_session_create_list_and_detail(client):
     detail_response = client.get(f"/api/v1/sessions/{session_id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["session"]["id"] == session_id
+
+    report_response = client.post(f"/api/v1/sessions/{session_id}/report")
+    assert report_response.status_code == 200
+    report_payload = report_response.json()["report"]
+    assert report_payload["session_id"] == session_id
+    assert "Detailed Session Report" in report_payload["title"]
+    assert isinstance(report_payload["sections"], list)
+    assert len(report_payload["sections"]) > 0

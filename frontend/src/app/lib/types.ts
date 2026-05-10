@@ -95,3 +95,19 @@ export interface User {
   display_name: string | null;
   created_at: string;
 }
+
+export interface DoctorReportSection {
+  title: string;
+  points: string[];
+}
+
+export interface DoctorReport {
+  session_id: string;
+  user_id: string;
+  generated_at: string;
+  title: string;
+  summary: string;
+  sections: DoctorReportSection[];
+  email_subject: string;
+  share_text: string;
+}

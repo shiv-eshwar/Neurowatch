@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas.analysis import Analysis, SessionAnalysisResponse
 from app.schemas.metrics import SessionMetrics
 from app.schemas.session import (
+    SessionDoctorReportResponse,
     SessionDetailResponse,
     SessionListResponse,
     SessionRecord,
@@ -22,6 +23,7 @@ from app.schemas.session import (
 )
 from app.services.analysis import AnalyzeSessionInput, analyze_session
 from app.services.baseline import get_user_baseline
+from app.services.reporting import generate_doctor_report
 from app.services.voice import transcribe_and_derive_voice_metrics
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -157,3 +159,23 @@ def get_session(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
     return SessionDetailResponse(session=_to_record(session))
+
+
+@router.post("/{session_id}/report", response_model=SessionDoctorReportResponse)
+@limiter.limit(DEFAULT_RATE_LIMIT)
+def generate_session_report(
+    request: Request,
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_user),
+):
+    session = db.scalar(
+        select(SessionModel).where(
+            SessionModel.id == session_id,
+            SessionModel.user_id == current_user.id,
+        )
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    report = generate_doctor_report(session)
+    return SessionDoctorReportResponse(report=report)

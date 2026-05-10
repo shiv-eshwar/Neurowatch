@@ -1,4 +1,11 @@
-import type { Analysis, SessionRecord, SessionMetrics, TrendsPoint, User } from "./types";
+import type {
+  Analysis,
+  DoctorReport,
+  SessionRecord,
+  SessionMetrics,
+  TrendsPoint,
+  User
+} from "./types";
 
 const API_PREFIX = "/api/v1";
 
@@ -86,4 +93,10 @@ export async function getSessionById(sessionId: string) {
 
 export async function getSessionTrends() {
   return requestJson<{ trends: TrendsPoint[]; latest: Analysis | null }>("/sessions/trends");
+}
+
+export async function generateSessionReport(sessionId: string) {
+  return requestJson<{ report: DoctorReport }>(`/sessions/${sessionId}/report`, {
+    method: "POST"
+  });
 }
