@@ -1,4 +1,5 @@
 import json
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -23,6 +24,8 @@ except Exception:  # noqa: BLE001
     firebase_admin = None
     firebase_auth = None
     credentials = None
+
+logger = logging.getLogger(__name__)
 
 
 class AuthError(Exception):
@@ -136,14 +139,24 @@ def _get_firebase_app():
 
 def verify_firebase_id_token(id_token: str) -> dict[str, Any]:
     settings = get_settings()
+
+    admin_error: Exception | None = None
+    fallback_error: Exception | None = None
+
     try:
         app = _get_firebase_app()
-        decoded = firebase_auth.verify_id_token(id_token, app=app)
+        decoded = firebase_auth.verify_id_token(id_token, app=app, check_revoked=False)
         return decoded
-    except AuthError:
-        pass
-    except Exception:  # noqa: BLE001
-        pass
+    except AuthError as exc:
+        admin_error = exc
+        logger.error("Firebase Admin init failed: %s", exc)
+    except Exception as exc:  # noqa: BLE001
+        admin_error = exc
+        logger.warning(
+            "firebase_admin.verify_id_token rejected token: %s: %s",
+            exc.__class__.__name__,
+            exc,
+        )
 
     if settings.firebase_project_id:
         try:
@@ -155,12 +168,19 @@ def verify_firebase_id_token(id_token: str) -> dict[str, Any]:
             )
             if decoded:
                 return decoded
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            fallback_error = exc
+            logger.warning(
+                "google.oauth2.id_token fallback rejected token: %s: %s",
+                exc.__class__.__name__,
+                exc,
+            )
 
+    cause = admin_error or fallback_error
+    detail = f" ({cause.__class__.__name__}: {cause})" if cause else ""
     raise AuthError(
         "Invalid or expired Firebase ID token. Confirm frontend and backend use the same Firebase project "
-        "and that FIREBASE_PROJECT_ID is configured."
+        "and that FIREBASE_PROJECT_ID is configured." + detail
     )
 
 

@@ -2,6 +2,17 @@ name: Deploy NeuroWatch To AWS Lightsail
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".gitignore"
+
+concurrency:
+  group: lightsail-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:

@@ -114,62 +114,22 @@ python -m uvicorn app.main:app --port 8000 --app-dir backend
 
 FastAPI will serve the built SPA from `frontend/dist/` when present.
 
-## GitHub -> Cloud Run deployment (no Dockerfile)
+## Deployment — AWS Lightsail (Ubuntu)
 
-This repository includes CI/CD at `.github/workflows/deploy-cloud-run.yml`.
-It deploys to Cloud Run using `gcloud run deploy --source backend` (Buildpacks), not a custom Dockerfile.
+This project is deployed to a single AWS Lightsail Ubuntu instance using **nginx + systemd + gunicorn + uvicorn** (no Docker). On every push to `main`, GitHub Actions runs tests + frontend build, then SSHes into the Lightsail box and runs the release script.
 
-### One-time setup
+Pieces:
 
-1. In Google Cloud, enable APIs:
-   - Cloud Run Admin API
-   - Cloud Build API
-   - Artifact Registry API
-   - Secret Manager API
+- `deploy/lightsail/bootstrap.sh` — one-time server setup (nginx, Python, Node 20, certbot, ufw, fail2ban)
+- `deploy/lightsail/deploy.sh` — application release: installs deps, builds frontend, runs migrations, restarts the service
+- `deploy/lightsail/deploy-production.sh` — one-command pull + release (used by CI)
+- `deploy/lightsail/rollback.sh` — rollback to the previous successful release
+- `deploy/lightsail/enable-ssl.sh` — Let's Encrypt TLS provisioning
+- `deploy/lightsail/neurowatch.service` — systemd unit running `gunicorn` with uvicorn workers
+- `deploy/lightsail/nginx.neurowatch.conf` — nginx reverse proxy (80/443 → 127.0.0.1:8000)
+- `.github/workflows/deploy-lightsail.yml` — CI/CD via GitHub Actions over SSH
 
-2. Create a deployer service account and grant roles:
-   - `roles/run.admin`
-   - `roles/cloudbuild.builds.editor`
-   - `roles/artifactregistry.admin`
-   - `roles/secretmanager.admin`
-   - `roles/iam.serviceAccountUser` (for runtime service account usage)
-
-3. In GitHub repository settings, add these secrets:
-   - `GCP_SA_KEY` (JSON key for deployer service account)
-   - `GCP_PROJECT_ID`
-   - `GCP_REGION` (for example `asia-south1`)
-   - `CLOUD_RUN_SERVICE` (for example `neurowatch-app`)
-   - `CLOUD_RUN_RUNTIME_SA` (optional but recommended runtime service account email)
-   - `CORS_ORIGINS` (public frontend URL)
-   - `FIREBASE_PROJECT_ID`
-   - `DATABASE_URL`
-   - `JWT_SECRET`
-   - `OPENAI_API_KEY`
-   - `FIREBASE_SERVICE_ACCOUNT_JSON`
-
-### What the workflow does
-
-- Builds frontend (`frontend/dist`)
-- Copies static assets into `backend/frontend/dist`
-- Runs Alembic migrations
-- Syncs required values to Secret Manager
-- Deploys Cloud Run service from source
-
-After setup, deploy by pushing to `main` or manually running the workflow from GitHub Actions.
-
-## GitHub -> AWS Lightsail deployment
-
-For VM-based deployment on Lightsail (without Docker), use:
-
-- `deploy/lightsail/bootstrap.sh` (one-time server setup)
-- `deploy/lightsail/deploy.sh` (application release)
-- `deploy/lightsail/deploy-production.sh` (one-command pull + release)
-- `deploy/lightsail/rollback.sh` (rollback to previous stable release)
-- `deploy/lightsail/enable-ssl.sh` (Let's Encrypt TLS)
-- `.github/workflows/deploy-lightsail.yml` (GitHub Actions SSH deployment)
-
-Detailed guide: `docs/lightsail-deployment.md`.
-These scripts build both frontend and backend, run migrations, and restart services.
+Full step-by-step guide: `docs/lightsail-deployment.md`.
 
 ## Security Note
 

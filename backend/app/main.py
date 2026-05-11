@@ -20,12 +20,14 @@ from app.middleware.request_id import RequestIdMiddleware
 
 def _resolve_frontend_dist() -> Path | None:
     """
-    Support both local repo layout and Cloud Run source-deploy layout.
+    Locate the built SPA. Supports the standard repo layout used in dev and on the
+    Lightsail server (repo/backend/app/main.py -> repo/frontend/dist), plus a couple
+    of fallbacks when the process is launched from elsewhere.
     """
     file_path = Path(__file__).resolve()
     candidates = [
-        file_path.parents[2] / "frontend" / "dist",  # local: repo/backend/app/main.py -> repo/frontend/dist
-        file_path.parents[1] / "frontend" / "dist",  # cloud source deploy from backend/: /workspace/frontend/dist
+        file_path.parents[2] / "frontend" / "dist",
+        file_path.parents[1] / "frontend" / "dist",
         Path.cwd() / "frontend" / "dist",
     ]
     for candidate in candidates:

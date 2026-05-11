@@ -1,5 +1,6 @@
 [Unit]
-Description=NeuroWatch FastAPI service
+Description=NeuroWatch FastAPI service (gunicorn + uvicorn workers)
+Documentation=https://github.com/your-org/neurowatch
 After=network-online.target
 Wants=network-online.target
 
@@ -7,17 +8,58 @@ Wants=network-online.target
 Type=simple
 User=__RUN_USER__
 Group=__RUN_USER__
+
 WorkingDirectory=__APP_DIR__
-EnvironmentFile=__APP_DIR__/.env
-ExecStart=__APP_DIR__/.venv/bin/gunicorn --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000 --timeout 120 --graceful-timeout 30 --access-logfile - --error-logfile - --chdir backend app.main:app
-Restart=always
-RestartSec=5
+
+## Defaults first; EnvironmentFile= afterwards so user overrides in .env win.
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=GUNICORN_WORKERS=2
+Environment=GUNICORN_TIMEOUT=120
+EnvironmentFile=-__APP_DIR__/.env
+
+ExecStart=__APP_DIR__/.venv/bin/gunicorn \
+    --workers ${GUNICORN_WORKERS} \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 127.0.0.1:8000 \
+    --timeout ${GUNICORN_TIMEOUT} \
+    --graceful-timeout 30 \
+    --keep-alive 5 \
+    --max-requests 1000 \
+    --max-requests-jitter 100 \
+    --access-logfile - \
+    --error-logfile - \
+    --chdir backend \
+    app.main:app
+
+Restart=on-failure
+RestartSec=5s
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+## --- sandboxing / hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
 ReadWritePaths=__APP_DIR__
-LimitNOFILE=4096
+
+## --- resource limits
+LimitNOFILE=8192
+TasksMax=512
+
+## --- logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=neurowatch
 
 [Install]
 WantedBy=multi-user.target
