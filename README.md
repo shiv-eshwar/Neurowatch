@@ -12,7 +12,7 @@ NeuroWatch is now a production-oriented, two-tier application with a clean folde
 - Node.js 18+
 - Python 3.11+
 
-## 1) Configure Environment
+## 1) Configure Environments
 
 Copy values from `.env.example` into `.env` and set:
 
